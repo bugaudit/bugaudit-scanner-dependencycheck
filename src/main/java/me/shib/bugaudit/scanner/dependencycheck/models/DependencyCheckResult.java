@@ -53,9 +53,9 @@ public final class DependencyCheckResult {
     private void collectVulnerableDependencies() {
         this.vulnerableDependencies = new ArrayList<>();
         for (Dependency dependency : dependencies) {
-            if(dependency.getVulnerabilities() != null) {
+            if (dependency.getVulnerabilities() != null) {
                 for (Vulnerability vulnerability : dependency.getVulnerabilities()) {
-                    if(vulnerability.getName().toUpperCase().startsWith("CVE-") &&
+                    if (vulnerability.getName().toUpperCase().startsWith("CVE-") &&
                             vulnerability.getSource() != Vulnerability.Source.RETIREJS) {
                         vulnerableDependencies.add(dependency);
                         break;
