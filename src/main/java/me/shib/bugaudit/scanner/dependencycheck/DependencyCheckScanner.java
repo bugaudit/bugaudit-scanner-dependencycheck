@@ -2,7 +2,10 @@ package me.shib.bugaudit.scanner.dependencycheck;
 
 import me.shib.bugaudit.commons.BugAuditContent;
 import me.shib.bugaudit.commons.BugAuditException;
-import me.shib.bugaudit.scanner.*;
+import me.shib.bugaudit.scanner.Bug;
+import me.shib.bugaudit.scanner.BugAuditScanResult;
+import me.shib.bugaudit.scanner.BugAuditScanner;
+import me.shib.bugaudit.scanner.Lang;
 import me.shib.bugaudit.scanner.dependencycheck.models.Dependency;
 import me.shib.bugaudit.scanner.dependencycheck.models.DependencyCheckResult;
 import me.shib.bugaudit.scanner.dependencycheck.models.Reference;
@@ -16,9 +19,10 @@ import java.util.List;
 public final class DependencyCheckScanner extends BugAuditScanner {
 
     private static final transient String cweBaseURL = "https://cwe.mitre.org/data/definitions/";
-    private static final transient Lang lang = Lang.Undefined;
+    private static final transient Lang lang = Lang.Unknown;
     private static final transient String tool = "DependencyCheck";
-    private static final transient File dependencyCheckReportFile = new File("bugaudit-dependency-check-result.json");
+    private static final transient String dependencyCheckReportFileName = "bugaudit-dependency-check-result.json";
+    private static final transient int cveRecheckHours = 4;
 
     private BugAuditScanResult bugauditResult;
 
@@ -26,11 +30,6 @@ public final class DependencyCheckScanner extends BugAuditScanner {
         super();
         this.bugauditResult = this.getBugAuditScanResult();
         this.bugauditResult.addKey("Vulnerable-Dependency");
-    }
-
-    @Override
-    protected BugAuditScannerConfig getDefaultScannerConfig() {
-        return null;
     }
 
     @Override
@@ -74,6 +73,10 @@ public final class DependencyCheckScanner extends BugAuditScanner {
         description.append("**[").append(vulnerability.getName()).append("](").append(getUrlForCVE(vulnerability.getName()))
                 .append("):**").append("\n");
         description.append(" * **Component:** ").append(dependency.getFileName()).append("\n");
+        String currentPath = System.getProperty("user.dir") + "/";
+        if (dependency.getFilePath().startsWith(currentPath)) {
+            description.append(" * **Path:** ").append(dependency.getFilePath().replaceFirst(currentPath, "")).append("\n");
+        }
         description.append(" * **Description:** ").append(vulnerability.getDescription()).append("\n");
         description.append(" * **CVSS v2 Score:** ").append(vulnerability.getCvssv2().getScore()).append("\n");
         description.append(" * **CVSS v3 Score:** ").append(vulnerability.getCvssv3().getBaseScore()).append("\n");
@@ -144,12 +147,17 @@ public final class DependencyCheckScanner extends BugAuditScanner {
         }
     }
 
-    private void runDependecyCheck() {
-
+    private void runDependecyCheck() throws IOException, InterruptedException {
+        runCommand("dependency-check" +
+                " --cveValidForHours " + cveRecheckHours +
+                " --format JSON" +
+                " --out " + dependencyCheckReportFileName +
+                " --scan .");
     }
 
     @Override
     public void scan() throws IOException, InterruptedException, BugAuditException {
+        File dependencyCheckReportFile = new File(dependencyCheckReportFileName);
         if (!isParserOnly()) {
             dependencyCheckReportFile.delete();
             runDependecyCheck();
