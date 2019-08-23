@@ -19,7 +19,7 @@ import java.util.List;
 public final class DependencyCheckScanner extends BugAuditScanner {
 
     private static final transient String cweBaseURL = "https://cwe.mitre.org/data/definitions/";
-    private static final transient Lang lang = Lang.Unknown;
+    private static final transient Lang lang = Lang.Java;
     private static final transient String tool = "DependencyCheck";
     private static final transient String dependencyCheckReportFileName = "bugaudit-dependency-check-result.json";
     private static final transient int cveRecheckHours = 4;
@@ -78,11 +78,15 @@ public final class DependencyCheckScanner extends BugAuditScanner {
             description.append(" * **Path:** ").append(dependency.getFilePath().replaceFirst(currentPath, "")).append("\n");
         }
         description.append(" * **Description:** ").append(vulnerability.getDescription()).append("\n");
-        description.append(" * **CVSS v2 Score:** ").append(vulnerability.getCvssv2().getScore()).append("\n");
-        description.append(" * **CVSS v3 Score:** ").append(vulnerability.getCvssv3().getBaseScore()).append("\n");
+        if (vulnerability.getCvssv2() != null) {
+            description.append(" * **CVSS v2 Score:** ").append(vulnerability.getCvssv2().getScore()).append("\n");
+        }
+        if (vulnerability.getCvssv3() != null) {
+            description.append(" * **CVSS v3 Score:** ").append(vulnerability.getCvssv3().getBaseScore()).append("\n");
+        }
         description.append(" * **Severity:** ").append(vulnerability.getSeverity()).append("\n");
 
-        description.append(" * **Applicable CWEs:**").append(vulnerability.getCvssv3().getBaseScore()).append("\n");
+        description.append(" * **Applicable CWEs:**");
         for (String cwe : vulnerability.getCwes()) {
             String cweURL = getUrlForCWE(cwe);
             if (cweURL != null) {
@@ -127,21 +131,23 @@ public final class DependencyCheckScanner extends BugAuditScanner {
             }
             for (Dependency dependency : directDependencies) {
                 for (Vulnerability vulnerability : dependency.getVulnerabilities()) {
-                    String dependencyName = dependency.getFileName();
                     String cve = vulnerability.getName();
-                    int priority = getPriorityForSeverity(vulnerability.getSeverity());
-                    String title = "Vulnerability (" + cve + ") found in " + dependencyName +
-                            " of " + bugauditResult.getRepo();
-                    Bug bug = bugauditResult.newBug(title, priority);
-                    bug.setDescription(new BugAuditContent(getDescription(dependency, vulnerability)));
-                    if (vulnerability.getCwes() != null) {
-                        for (String cwe : vulnerability.getCwes()) {
-                            bug.addType(cwe);
+                    if (cve.startsWith("CVE-")) {
+                        String dependencyName = dependency.getFileName();
+                        int priority = getPriorityForSeverity(vulnerability.getSeverity());
+                        String title = "Vulnerability (" + cve + ") found in " + dependencyName +
+                                " of " + bugauditResult.getRepo();
+                        Bug bug = bugauditResult.newBug(title, priority);
+                        bug.setDescription(new BugAuditContent(getDescription(dependency, vulnerability)));
+                        if (vulnerability.getCwes() != null) {
+                            for (String cwe : vulnerability.getCwes()) {
+                                bug.addType(cwe);
+                            }
                         }
+                        bug.addKey(dependencyName);
+                        bug.addKey(cve);
+                        bugauditResult.addBug(bug);
                     }
-                    bug.addKey(dependencyName);
-                    bug.addKey(cve);
-                    bugauditResult.addBug(bug);
                 }
             }
         }
