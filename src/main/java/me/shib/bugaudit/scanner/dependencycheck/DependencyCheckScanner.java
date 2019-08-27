@@ -137,7 +137,7 @@ public final class DependencyCheckScanner extends BugAuditScanner {
                         int priority = getPriorityForSeverity(vulnerability.getSeverity());
                         String title = "Vulnerability (" + cve + ") found in " + dependencyName +
                                 " of " + bugauditResult.getRepo();
-                        Bug bug = bugauditResult.newBug(title, priority);
+                        Bug bug = new Bug(title, priority);
                         bug.setDescription(new BugAuditContent(getDescription(dependency, vulnerability)));
                         if (vulnerability.getCwes() != null) {
                             for (String cwe : vulnerability.getCwes()) {
