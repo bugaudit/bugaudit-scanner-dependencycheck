@@ -21,7 +21,7 @@ public final class DependencyCheckScanner extends BugAuditScanner {
     private static final transient String cweBaseURL = "https://cwe.mitre.org/data/definitions/";
     private static final transient Lang lang = Lang.Java;
     private static final transient String tool = "DependencyCheck";
-    private static final transient String dependencyCheckReportFileName = "bugaudit-dependency-check-result.json";
+    private static final transient File dependencyCheckReportFile = new File("bugaudit-dependency-check-result.json");
     private static final transient int cveRecheckHours = 4;
 
     private BugAuditScanResult bugauditResult;
@@ -157,13 +157,12 @@ public final class DependencyCheckScanner extends BugAuditScanner {
         runCommand("dependency-check" +
                 " --cveValidForHours " + cveRecheckHours +
                 " --format JSON" +
-                " --out " + dependencyCheckReportFileName +
+                " --out " + dependencyCheckReportFile.getPath() +
                 " --scan .");
     }
 
     @Override
     public void scan() throws IOException, InterruptedException, BugAuditException {
-        File dependencyCheckReportFile = new File(dependencyCheckReportFileName);
         if (!isParserOnly()) {
             dependencyCheckReportFile.delete();
             runDependecyCheck();
