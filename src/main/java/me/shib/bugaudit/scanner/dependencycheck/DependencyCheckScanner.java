@@ -157,7 +157,7 @@ public final class DependencyCheckScanner extends BugAuditScanner {
         runCommand("dependency-check" +
                 " --cveValidForHours " + cveRecheckHours +
                 " --format JSON" +
-                " --out " + dependencyCheckReportFile.getPath() +
+                " --out " + dependencyCheckReportFile.getAbsolutePath() +
                 " --scan .");
     }
 
