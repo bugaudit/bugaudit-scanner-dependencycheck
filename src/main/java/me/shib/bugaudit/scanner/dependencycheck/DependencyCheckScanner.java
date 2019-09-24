@@ -14,7 +14,9 @@ import me.shib.bugaudit.scanner.dependencycheck.models.Vulnerability;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class DependencyCheckScanner extends BugAuditScanner {
 
@@ -22,7 +24,7 @@ public final class DependencyCheckScanner extends BugAuditScanner {
     private static final transient Lang lang = Lang.Java;
     private static final transient String tool = "DependencyCheck";
     private static final transient File dependencyCheckReportFile = new File("bugaudit-dependency-check-result.json");
-    private static final transient int cveRecheckHours = 4;
+    private static final transient int cveRecheckHours = 24;
 
     private BugAuditScanResult bugauditResult;
 
@@ -122,32 +124,64 @@ public final class DependencyCheckScanner extends BugAuditScanner {
 
     private void processDependencyCheckReport(DependencyCheckResult dependencyCheckResult) throws BugAuditException {
         if (bugauditResult.getBugs().size() == 0) {
-            List<Dependency> vulnerableDependencies = dependencyCheckResult.getVulnerableDependencies();
-            List<Dependency> directDependencies = new ArrayList<>();
-            for (Dependency dependency : vulnerableDependencies) {
-                if (!dependency.getFileName().contains("(shaded: ")) {
-                    directDependencies.add(dependency);
+            class VulnDependencyPair {
+                private Vulnerability vulnerability;
+                private Dependency dependency;
+
+                private VulnDependencyPair(Vulnerability vulnerability, Dependency dependency) {
+                    this.vulnerability = vulnerability;
+                    this.dependency = dependency;
                 }
             }
-            for (Dependency dependency : directDependencies) {
-                for (Vulnerability vulnerability : dependency.getVulnerabilities()) {
-                    String cve = vulnerability.getName();
-                    if (cve.startsWith("CVE-")) {
-                        String dependencyName = dependency.getFileName();
-                        int priority = getPriorityForSeverity(vulnerability.getSeverity());
-                        String title = "Vulnerability (" + cve + ") found in " + dependencyName +
-                                " of " + bugauditResult.getRepo();
-                        Bug bug = new Bug(title, priority);
-                        bug.setDescription(new BugAuditContent(getDescription(dependency, vulnerability)));
-                        if (vulnerability.getCwes() != null) {
-                            for (String cwe : vulnerability.getCwes()) {
-                                bug.addType(cwe);
+            Map<String, List<VulnDependencyPair>> vulnDepsMap = new HashMap<>();
+            List<Dependency> vulnerableDependencies = dependencyCheckResult.getVulnerableDependencies();
+            for (Dependency dependency : vulnerableDependencies) {
+                if (!dependency.getFileName().contains("(shaded: ") &&
+                        dependency.getFileName().toLowerCase().endsWith(".jar")) {
+                    List<Vulnerability> vulnerabilities = dependency.getVulnerabilities();
+                    if (vulnerabilities != null) {
+                        for (Vulnerability vulnerability : vulnerabilities) {
+                            if (vulnerability.getName() != null &&
+                                    vulnerability.getName().toUpperCase().startsWith("CVE-")) {
+                                String key = dependency.getName().toLowerCase() + "-" + vulnerability.getName();
+                                List<VulnDependencyPair> vulnDependencyPairs = vulnDepsMap.get(key);
+                                if (vulnDependencyPairs == null) {
+                                    vulnDependencyPairs = new ArrayList<>();
+                                }
+                                vulnDependencyPairs.add(new VulnDependencyPair(vulnerability, dependency));
+                                vulnDepsMap.put(key, vulnDependencyPairs);
                             }
                         }
-                        bug.addKey(dependencyName);
-                        bug.addKey(cve);
-                        bugauditResult.addBug(bug);
                     }
+                }
+            }
+
+            for (String key : vulnDepsMap.keySet()) {
+                List<VulnDependencyPair> vulnDependencyPairs = vulnDepsMap.get(key);
+                if (vulnDependencyPairs != null && vulnDependencyPairs.size() > 0) {
+                    Vulnerability vulnerability = vulnDependencyPairs.get(0).vulnerability;
+                    Dependency dependency = vulnDependencyPairs.get(0).dependency;
+                    String cve = vulnerability.getName();
+                    String title = "Vulnerability (" + cve + ") found in " + dependency.getName() +
+                            " of " + bugauditResult.getRepo();
+                    int priority = 10;
+                    for (VulnDependencyPair vulnDependencyPair : vulnDependencyPairs) {
+                        int vulnPriority = getPriorityForSeverity(vulnDependencyPair.vulnerability.getSeverity());
+                        if (vulnPriority < priority) {
+                            priority = vulnPriority;
+                        }
+                    }
+                    Bug bug = new Bug(title, priority);
+                    bug.setDescription(new BugAuditContent(getDescription(dependency, vulnerability)));
+                    if (vulnerability.getCwes() != null) {
+                        for (String cwe : vulnerability.getCwes()) {
+                            bug.addType(cwe);
+                        }
+                    }
+                    bug.addKey(dependency.getName());
+                    bug.addKey(cve);
+                    bug.addTag(dependency.getFileName());
+                    bugauditResult.addBug(bug);
                 }
             }
         }

@@ -6,6 +6,7 @@ public final class Dependency {
 
     private boolean isVirtual;
     private String fileName;
+    private transient String name;
     private String filePath;
     private String md5;
     private String sha1;
@@ -20,6 +21,13 @@ public final class Dependency {
 
     public String getFileName() {
         return fileName;
+    }
+
+    public String getName() {
+        if (null == name) {
+            name = fileName.split("(^|-)([0-9])")[0];
+        }
+        return name;
     }
 
     public String getFilePath() {
