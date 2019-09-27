@@ -21,7 +21,6 @@ import java.util.Map;
 public final class DependencyCheckScanner extends BugAuditScanner {
 
     private static final transient String cweBaseURL = "https://cwe.mitre.org/data/definitions/";
-    private static final transient Lang lang = Lang.Java;
     private static final transient String tool = "DependencyCheck";
     private static final transient File dependencyCheckReportFile = new File("bugaudit-dependency-check-result.json");
     private static final transient int cveRecheckHours = 24;
@@ -35,8 +34,8 @@ public final class DependencyCheckScanner extends BugAuditScanner {
     }
 
     @Override
-    protected Lang getLang() {
-        return lang;
+    protected boolean isLangSupported(Lang lang) {
+        return lang == Lang.Java;
     }
 
     @Override
